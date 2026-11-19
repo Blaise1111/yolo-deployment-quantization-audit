@@ -1,0 +1,19 @@
+seed: 2027
+calib_count: 200
+fast_eval_1000: false
+resolutions: [640, 480, 320]
+confidence: 0.001
+operating_confidence: 0.25
+nms_iou: 0.65
+match_iou: 0.50
+max_det: 300
+fppi: 0.5
+calibration_bins: 10
+calibration_bootstrap: 1000
+calibration_method: MinMax
+cpu_threads: 4
+warmups: 50
+latency_rounds: 3
+latency_images: 200
+fp16_cuda: true
+weight_sha256: 0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1

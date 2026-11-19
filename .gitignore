@@ -1,0 +1,33 @@
+# Local runtime, diagnostic and training state
+/.venv/
+/logs/
+/.checkpoints/
+/.work/
+__pycache__/
+.pytest_cache/
+
+# Datasets, archives and model weights
+/data/
+/models/
+*.wav
+*.flac
+*.mp3
+*.jpg
+*.jpeg
+*.zip
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.ckpt
+*.engine
+*.part
+.env
+.env.*
+
+# Per-image predictions stay local. Published tables are regenerated with the audit runner.
+/results/**/*.jsonl
+
+# Local smoke-test artifacts from the 1,000-image subset
+/results/fast_eval_1000/
+/figs/fast_eval_1000/
