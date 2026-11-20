@@ -9,6 +9,8 @@ from .coco_split import split_ids
 from .detections import read_records
 from .flips_and_ece import audit_pair, ece_delta_ci, reliability, temperature_fit, transform
 from .latency_bench import summarize_latency
+from .parity_gate import PARITY_LIMIT
+from .timing_evidence import load as load_timing, path_for, validate_rows
 
 REPORTS = (
     "p2_backend_flips_audit", "p2_scale_degradation_matrix",
@@ -86,7 +88,13 @@ def detection_reports(directory):
 
 
 def latency_report(directory):
-    rows = pd.read_csv(directory/"latency_logs.csv", float_precision="round_trip")
+    path = directory/"latency_logs.csv"
+    if path_for(path).is_file():
+        rows, _ = load_timing(path)
+    else:
+        print("Timing provenance: historical unauthenticated capture, offline recomputation only.", flush=True)
+        rows = pd.read_csv(path, float_precision="round_trip")
+        validate_rows(rows)
     metadata = json.loads((directory/"run_manifest.json").read_text(encoding="utf-8"))
     config = metadata["config"]
     ids = metadata["partitions"]["eval_1000"]
@@ -115,6 +123,7 @@ def parity(frame):
     grid = frame.pivot(index="resolution", columns="backend", values="map")
     gaps = (grid.torch_fp32 - grid.onnx_fp32).abs()
     for size, gap in gaps.items():
-        print(f"FP32 parity {size}: |delta mAP|={gap:.9f} (limit 0.003)", flush=True)
-    if not gaps.le(0.003).all():
+        print(f"FP32 parity {size}: |delta mAP|={gap:.9f} (limit {PARITY_LIMIT:g})", flush=True)
+    if gaps.empty or not gaps.le(PARITY_LIMIT).all():
         raise ValueError("PyTorch/ONNX FP32 parity failed")
+    return {str(size): float(gap) for size, gap in gaps.items()}

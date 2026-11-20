@@ -1,0 +1,51 @@
+{
+  "baseline": "a8083ab",
+  "commands": [
+    {
+      "command": ".venv/Scripts/python.exe -m pytest -q",
+      "exit_code": 0,
+      "result": "15 passed",
+      "local_log": "prepublish_tests.log"
+    },
+    {
+      "command": ".venv/Scripts/python.exe scripts/reaudit_saved_evidence.py --results-dir results --calibration-only --output audit_outputs/yolo_threshold_equivalence",
+      "exit_code": 0,
+      "result": "Three exact post-NMS cohort and metric matches; historical calibration rows unchanged at 1e-7",
+      "local_log": "threshold_equivalence.log"
+    },
+    {
+      "command": ".venv/Scripts/python.exe scripts/reaudit_saved_evidence.py --results-dir results --output audit_outputs/yolo_recomputed",
+      "exit_code": 0,
+      "result": "3,600 matched timing pairs and calibration comparisons at three sizes",
+      "local_log": "prepublish_recompute.log"
+    },
+    {
+      "command": ".venv/Scripts/python.exe scripts/run_full_audit.py --verify-csv --results-dir results",
+      "exit_code": 0,
+      "result": "Four historical main CSVs passed at absolute tolerance 1e-7 using saved evidence",
+      "local_log": "prepublish_verify.log"
+    },
+    {
+      "command": ".venv/Scripts/python.exe -",
+      "exit_code": 0,
+      "result": "Real 320 px FP32, FP16, INT8 exports in a temporary directory; each reused without writes. Validated the actual checkpoint/export hashes and 1,000 ordered image hashes.",
+      "local_log": "prepublish_export_smoke.log",
+      "stdin_python": "import tempfile\nfrom pathlib import Path\nfrom src import export_quantize as ex\nfrom src.coco_split import coco_inputs, load_config\nfrom src.parity_gate import parity_contract\nconfig = load_config()\n_, images, partitions = coco_inputs(config)\nconfig[\"resolutions\"] = [320]\nwith tempfile.TemporaryDirectory() as temp:\n    ex.model_path = lambda size, backend: Path(temp) / f\"{backend}_{size}.onnx\"\n    for backend in (\"onnx_fp32\", \"onnx_fp16\", \"onnx_int8\"):\n        args = (320, backend, partitions[\"calib_200\"], images, config)\n        model = ex.export_variant(*args)\n        stamp = model.with_suffix(\".provenance.json\")\n        before = (model.stat().st_mtime_ns, stamp.stat().st_mtime_ns)\n        assert ex.export_variant(*args) == model\n        assert (model.stat().st_mtime_ns, stamp.stat().st_mtime_ns) == before\n        print(f\"PASS actual {backend} export and unchanged-cache reuse\", flush=True)\n    fingerprint = parity_contract(config, partitions, images)\n    assert len(fingerprint[\"fast_images\"]) == 1000\n    assert fingerprint[\"fp32_sha256\"][\"320\"] == ex.digest(ex.model_path(320, \"onnx_fp32\"))\n    print(\"PASS real checkpoint, exported file and 1,000 ordered image fingerprints\", flush=True)"
+    },
+    {
+      "command": ".venv/Scripts/python.exe scripts/run_full_audit.py --full --output-dir audit_outputs/new_full/prepublish_gate_probe --fast-gate-dir results/fast_eval_1000",
+      "exit_code": 2,
+      "result": "Legacy parity manifest rejected before inference, with regeneration directions",
+      "local_log": "prepublish_gate_probe.log"
+    }
+  ],
+  "checks": [
+    "59 prior input/evidence digests match",
+    "README and evidence links resolve",
+    "Six tables from the combined offline rerun agree with the archived timing tables or the dedicated threshold-equivalence output at 1e-7."
+  ],
+  "limits": [
+    "No new 1,000-image inference pass or full inference. Successful gate reuse and checkpoint-change rejection were tested with small fixtures; actual exports and fingerprint capture were exercised separately.",
+    "Old predictions and timing were read for offline analysis. The old parity gate remains ineligible for new runs."
+  ]
+}

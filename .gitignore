@@ -31,3 +31,10 @@ __pycache__/
 # Local smoke-test artifacts from the 1,000-image subset
 /results/fast_eval_1000/
 /figs/fast_eval_1000/
+
+# Local diagnostic logs and generated verification-only copies
+/audit_outputs/**/*.log
+/audit_outputs/reports_check/
+/audit_outputs/yolo_recomputed/
+/audit_outputs/new_fast/
+/audit_outputs/new_full/

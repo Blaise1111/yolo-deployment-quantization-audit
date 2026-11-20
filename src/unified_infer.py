@@ -108,6 +108,7 @@ def ort_session(path, device, threads, profile=False):
             raise RuntimeError("CUDA is not available")
         ort.preload_dlls()
     options = ort.SessionOptions()
+    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     options.intra_op_num_threads = threads
     options.inter_op_num_threads = 1
     options.log_severity_level = 3

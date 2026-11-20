@@ -1,0 +1,22 @@
+[
+  {
+    "command": ".venv/Scripts/python.exe scripts/timing_smoke.py --output audit_outputs/timing_ab --with-cuda",
+    "exit_code": 0,
+    "log": "timing_ab.log"
+  },
+  {
+    "command": ".venv/Scripts/python.exe scripts/timing_smoke.py --output audit_outputs/timing_ba --order int8-first --with-cuda",
+    "exit_code": 0,
+    "log": "timing_ba.log"
+  },
+  {
+    "command": ".venv/Scripts/python.exe scripts/timing_smoke.py --output audit_outputs/timing_ab --with-cuda",
+    "exit_code": 0,
+    "log": "timing_ab_reuse.log"
+  },
+  {
+    "command": ".venv/Scripts/python.exe scripts/timing_smoke.py --output audit_outputs/timing_ab --order int8-first --with-cuda",
+    "exit_code": 1,
+    "log": "timing_expected_rejection.log"
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "command": ".venv/Scripts/python.exe scripts/run_full_audit.py --verify-csv --results-dir results",
+    "exit_code": 0,
+    "log": "baseline/legacy_verify.log"
+  },
+  {
+    "command": ".venv/Scripts/python.exe -m pytest -q",
+    "exit_code": 0,
+    "log": "baseline/legacy_tests.log"
+  }
+]

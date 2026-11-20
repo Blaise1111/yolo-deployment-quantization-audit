@@ -4,11 +4,13 @@ import platform
 from pathlib import Path
 from time import perf_counter_ns
 import json
+import shutil
 
 import numpy as np
 import pandas as pd
 import psutil
 
+from .timing_evidence import chosen_images, contract, load, path_for, publish, validate_order
 from .unified_infer import Runner, decode_image, letterbox, postprocess, model_path
 
 STAGES = ("decode", "preprocess", "inference", "postprocess", "total")
@@ -29,8 +31,11 @@ def benchmark(path, jobs, images, ids, categories, config):
     intended = mask[:config["cpu_threads"]]
     if len(intended) != config["cpu_threads"]:
         raise ValueError("The CPU benchmark requires four permitted logical CPUs")
-    rng = np.random.default_rng(config["seed"])
-    chosen = rng.choice(sorted(ids), size=config["latency_images"], replace=False).tolist()
+    chosen = chosen_images(ids, config)
+    expected = contract(jobs, chosen, images, config, intended)
+    if path.exists() or path_for(path).exists():
+        load(path, expected)
+        return
     category_ids = [item["id"] for item in categories]
 
     def one(runner, image_id, resolution):
@@ -48,7 +53,11 @@ def benchmark(path, jobs, images, ids, categories, config):
         return {name + "_ms": ns / 1e6 for name, ns in zip(STAGES, ticks)}
 
     partial = path.with_name("latency_partial.csv")
-    rows = pd.read_csv(partial, float_precision="round_trip").to_dict("records") if partial.is_file() else []
+    rows, actual_provider_options = [], {}
+    if partial.is_file() or path_for(partial).is_file():
+        previous, metadata = load(partial, expected, complete=False)
+        rows = previous.to_dict("records")
+        actual_provider_options = metadata["actual_provider_options"]
     done = {(row["resolution"], row["backend"], row["device"]) for row in rows}
     try:
         process.cpu_affinity(intended)
@@ -62,7 +71,15 @@ def benchmark(path, jobs, images, ids, categories, config):
                 int8_placement = {}
                 if is_onnx:
                     one(runner, chosen[0], resolution)
-                    trace = json.loads(Path(runner.runtime.end_profiling()).read_text(encoding="utf-8"))
+                    trace_path = Path(runner.runtime.end_profiling())
+                    stored_trace = path.parent / f"placement_{resolution}_{backend}_{device}.json"
+                    shutil.copyfile(trace_path, stored_trace)
+                    from .coco_split import digest
+                    actual_provider_options[f"{resolution}/{backend}/{device}"] = dict(
+                        providers=runner.runtime.get_providers(),
+                        options=runner.runtime.get_provider_options(), trace=stored_trace.name,
+                        trace_sha256=digest(stored_trace))
+                    trace = json.loads(stored_trace.read_text(encoding="utf-8"))
                     nodes = [event["args"] for event in trace if event.get("cat") == "Node"
                              and "provider" in event.get("args", {})]
                     placement = dict(Counter(node["provider"] for node in nodes))
@@ -92,14 +109,20 @@ def benchmark(path, jobs, images, ids, categories, config):
                 runner.close()
             checkpoint = partial.with_suffix(".tmp")
             pd.DataFrame(rows).to_csv(checkpoint, index=False, float_format="%.17g")
+            validate_order(pd.DataFrame(rows), expected, complete=False)
             checkpoint.replace(partial)
+            publish(partial, expected, complete=False,
+                    actual_provider_options=actual_provider_options)
             print(f"Latency measured: {resolution} {backend} {device}", flush=True)
     finally:
         process.cpu_affinity(mask)
     temporary = path.with_suffix(".part")
     pd.DataFrame(rows).to_csv(temporary, index=False, float_format="%.17g")
+    validate_order(pd.DataFrame(rows), expected)
     temporary.replace(path)
+    publish(path, expected, actual_provider_options=actual_provider_options)
     partial.unlink(missing_ok=True)
+    path_for(partial).unlink(missing_ok=True)
 
 
 def summarize_latency(rows):

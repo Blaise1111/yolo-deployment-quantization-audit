@@ -34,6 +34,10 @@ Lower resolution reduced small-object AP and recall across the core grid. INT8 Q
 
 In the public repository, per-image JSONL evidence stays local to the original run. Generate the detection records with the fast and full commands before running the offline CSV check.
 
+## Local evidence repair
+
+See [the evidence repair report](EVIDENCE_REPAIR.md) for the post-hoc analysis, inputs, limits and commands. The original public baseline stays under `results/` and the repair writes to `audit_outputs/`.
+
 ## Reproduce
 
 Run from this repository in PowerShell with Python 3.13.16 and uv. Directory `logs/` receives command output. The locked PyTorch build is CUDA 12.8 and the installed ONNX Runtime GPU wheel can also execute on its CPU provider.
@@ -44,9 +48,9 @@ uv venv --python 3.13.16 *> logs/venv.log
 uv pip install -r requirements.txt *> logs/install.log
 .venv/Scripts/python.exe scripts/prepare_assets.py *> logs/assets.log
 .venv/Scripts/python.exe -m pytest -v tests/test_audit_integrity.py *> logs/pytest.log
-.venv/Scripts/python.exe -u scripts/run_full_audit.py --fast-eval-1000 *> logs/fast_full_audit.log
-.venv/Scripts/python.exe -u scripts/run_full_audit.py --full *> logs/full_audit.log
-.venv/Scripts/python.exe -u scripts/run_full_audit.py --verify-csv *> logs/verify_csv.log
+.venv/Scripts/python.exe -u scripts/run_full_audit.py --fast-eval-1000 --output-dir audit_outputs/new_fast *> logs/fast_full_audit.log
+.venv/Scripts/python.exe -u scripts/run_full_audit.py --full --output-dir audit_outputs/new_full --fast-gate-dir audit_outputs/new_fast *> logs/full_audit.log
+.venv/Scripts/python.exe -u scripts/run_full_audit.py --verify-csv --results-dir audit_outputs/new_full *> logs/verify_csv.log
 ```
 
-The fast command generates local 1,000-image artifacts under `results/fast_eval_1000/` and `figs/fast_eval_1000/`. The full command requires the fast-run FP32 parity gate at every resolution (absolute mAP difference ≤ 0.003). It reuses the latency evidence from the fast run, since the benchmark uses the same 200 images, runtime configuration and local hardware in both modes. Input images and model weights are unnecessary for CSV verification. Keep the per-image detections and candidates, the two ground-truth subsets, `run_manifest.json`, and `latency_logs.csv` together. Use `--verify-csv --results-dir PATH` to regenerate and compare all four reports at an absolute tolerance of `1e-7` from an evidence directory.
+New runs write to the explicit output directory, including plots under `figures/`. The full command requires the fast-run FP32 parity gate at every resolution (absolute mAP difference ≤ 0.003). The gate validates the checkpoint and actual FP32 export SHA-256 values, the audit configuration, annotations, partition membership and ordered fast-image fingerprints. Export cache sidecars also record artifact digests and conversion inputs. If an older export is rejected, set aside the named file and its sidecar from `models/`, then rerun the fast command in a fresh output directory and point `--fast-gate-dir` to it. Use optional `--reuse-timing-from audit_outputs/new_fast` to reuse timing under an exactly compatible capture manifest. Historical timing remains available to offline reports. Input images and model weights are unnecessary for CSV verification. Keep the per-image detections and candidates, the two ground-truth subsets, `run_manifest.json`, and `latency_logs.csv` together. Use `--verify-csv --results-dir PATH` to regenerate and compare all four reports at an absolute tolerance of `1e-7` from an evidence directory.

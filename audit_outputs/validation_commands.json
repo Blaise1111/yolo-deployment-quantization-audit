@@ -1,0 +1,26 @@
+[
+  {
+    "command": ".venv/Scripts/python.exe -m pytest -q",
+    "exit_code": 0,
+    "result": "11 passed",
+    "local_log": "tests.log"
+  },
+  {
+    "command": ".venv/Scripts/python.exe scripts/reaudit_saved_evidence.py --results-dir results --output audit_outputs/yolo",
+    "exit_code": 0,
+    "result": "3,600 matched timing pairs and both calibration estimands",
+    "local_log": "yolo_recompute.log"
+  },
+  {
+    "command": ".venv/Scripts/python.exe scripts/run_full_audit.py --reports-only --results-dir results --output-dir audit_outputs/reports_check",
+    "exit_code": 0,
+    "result": "Four main CSVs compared with historical results at absolute tolerance 1e-7",
+    "local_log": "reports_check.log"
+  },
+  {
+    "command": ".venv/Scripts/python.exe - (inline two-image FP32 inference journal and timing trace reuse probe)",
+    "exit_code": 0,
+    "result": "Prediction journal digest mismatch rejected and cross-directory timing reuse validated",
+    "local_log": "journal_smoke.log"
+  }
+]
